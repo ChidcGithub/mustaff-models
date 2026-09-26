@@ -11,13 +11,28 @@ model manifest. Training data and code live elsewhere (see [Training Data](#trai
 
 | Version | Component | Architecture | Params | Headline metric | Status |
 |---|---|---|---|---|---|
-| **v3** | placement | Beat-grid Transformer encoder, 48 slots/beat | 2.70M | **slot F1 0.676** (±2 slots ≈ ±17 ms) | **current** |
-| **v3** | selection | Autoregressive LSTM over 256 column-state combos | 5.84M | **combo acc 0.442** (prior 0.141) | **current** |
+| **v3.1** | placement | Beat-grid Transformer + diagnostic head (BPM/stars aux loss), EMA | 2.70M | **slot F1 0.671**, count ratio 1.11 | **current** |
+| **v3.1** | selection | Autoregressive LSTM, 256 combos, **scheduled sampling** | 5.84M | combo acc 0.433 (TF) — generation hold ratio now stable at 10–12% per re-roll | **current** |
+| v3.0 | placement | Beat-grid Transformer encoder, 48 slots/beat | 2.70M | slot F1 0.639 (±2 slots ≈ ±17 ms) | superseded |
+| v3.0 | selection | Autoregressive LSTM over 256 column-state combos | 5.84M | combo acc 0.442 (prior 0.141) | superseded |
 | v2 | placement | Frame-level Conv1d + FiLM + BiLSTM, multi-task (note/hold/len) | 1.22M | note F1 0.680 (±46 ms), hold F1 0.135 | legacy |
 | v2 | selection | ContextCNN + LSTM, per-note 4-class | 0.71M | col acc 0.549 (prior 0.254) | legacy |
 
 > v2 checkpoints are kept for reference and fallback. The runtime automatically prefers v3 when
 > both generations are present (see `training/generate.py: v3_available`).
+
+## Changelog
+
+### v3.1 (2026-09-26)
+
+- **Scheduled sampling** for selection (ramp to 25% self-fed history): fixes exposure bias that
+  made long-note styling bistable at generation time (hold ratio swung 0% ↔ 66% between runs;
+  now stable at 10–12% per re-roll)
+- **Diagnostic head** on placement (regresses BPM/stars from pooled hidden state, λ = 0.3):
+  forces the trunk to encode tempo/difficulty; slot F1 0.639 → 0.671, event count ratio
+  1.52 → 1.11
+- EMA weights (decay 0.999) used for evaluation and checkpoints
+- Training throughput ~2.5× via bf16 autocast + 4-worker pinned DataLoaders + LR warmup
 
 ## What makes v3 different
 

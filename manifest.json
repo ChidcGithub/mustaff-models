@@ -1,6 +1,7 @@
 {
   "schema": 1,
   "updated": "2026-09-26",
+  "release": "v3.1.0",
   "runtime_repo": "https://github.com/ChidcGithub/Mustaff",
   "data_snapshot": {
     "sets": 2912,
@@ -14,22 +15,25 @@
     {
       "name": "placement_v3",
       "file": "placement_v3_best.pt",
-      "architecture": "beat-grid transformer encoder (4 layers, d=192, 8 heads), FiLM(bpm,stars)",
+      "architecture": "beat-grid transformer encoder (4 layers, d=192, 8 heads), FiLM(bpm,stars) + diagnostic head, EMA",
       "params": 2700000,
       "input": "[B, T_beats, 8, 82] per-beat resampled features",
       "output": "[B, T_beats, 48] event logits (note heads + hold tails)",
-      "metrics": {"slot_f1_tol2": 0.6763, "count_ratio": 1.04},
-      "status": "current"
+      "metrics": {"slot_f1_tol2": 0.6713, "count_ratio": 1.11},
+      "status": "current",
+      "release": "v3.1.0"
     },
     {
       "name": "selection_v3",
       "file": "selection_v3_best.pt",
-      "architecture": "2-layer LSTM (h=512) over [audio ctx, 16-event history emb, cond]",
+      "architecture": "2-layer LSTM (h=512) over [audio ctx, 16-event history emb, cond], scheduled sampling, EMA",
       "params": 5840000,
       "input": "per-event audio window (±2 beats) + prev 16 combos + phase/IOI/cond",
       "output": "256-way column-state combo (4 cols x {none,note,hold_head,hold_tail})",
-      "metrics": {"combo_acc": 0.442, "majority_prior": 0.1406},
-      "status": "current"
+      "metrics": {"combo_acc": 0.4327, "majority_prior": 0.1381,
+                  "generation_hold_ratio": "0.108-0.124 across re-rolls (was bistable 0/0.66)"},
+      "status": "current",
+      "release": "v3.1.0"
     },
     {
       "name": "placement_v2",
