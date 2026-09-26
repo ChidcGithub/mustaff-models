@@ -1,0 +1,51 @@
+{
+  "schema": 1,
+  "updated": "2026-09-26",
+  "runtime_repo": "https://github.com/ChidcGithub/Mustaff",
+  "data_snapshot": {
+    "sets": 2912,
+    "charts": 8947,
+    "split": {"train": 2329, "val": 291, "test": 292},
+    "keys": 4,
+    "feature_dim": 82,
+    "slots_per_beat": 48
+  },
+  "models": [
+    {
+      "name": "placement_v3",
+      "file": "placement_v3_best.pt",
+      "architecture": "beat-grid transformer encoder (4 layers, d=192, 8 heads), FiLM(bpm,stars)",
+      "params": 2700000,
+      "input": "[B, T_beats, 8, 82] per-beat resampled features",
+      "output": "[B, T_beats, 48] event logits (note heads + hold tails)",
+      "metrics": {"slot_f1_tol2": 0.6763, "count_ratio": 1.04},
+      "status": "current"
+    },
+    {
+      "name": "selection_v3",
+      "file": "selection_v3_best.pt",
+      "architecture": "2-layer LSTM (h=512) over [audio ctx, 16-event history emb, cond]",
+      "params": 5840000,
+      "input": "per-event audio window (±2 beats) + prev 16 combos + phase/IOI/cond",
+      "output": "256-way column-state combo (4 cols x {none,note,hold_head,hold_tail})",
+      "metrics": {"combo_acc": 0.442, "majority_prior": 0.1406},
+      "status": "current"
+    },
+    {
+      "name": "placement_v2",
+      "file": "placement_best.pt",
+      "architecture": "Conv1d + FiLM + BiLSTM, multi-task heads (note/hold/len)",
+      "params": 1220000,
+      "metrics": {"note_f1_46ms": 0.6799, "hold_f1": 0.135},
+      "status": "legacy fallback"
+    },
+    {
+      "name": "selection_v2",
+      "file": "selection_best.pt",
+      "architecture": "ContextCNN + 2-layer LSTM, per-note 4-class",
+      "params": 710000,
+      "metrics": {"col_acc": 0.549, "prior": 0.2542},
+      "status": "legacy fallback"
+    }
+  ]
+}

@@ -1,0 +1,3 @@
+# 模型权重（.pt）只通过 GitHub Releases 分发，不进 git 历史
+*.pt
+__pycache__/
