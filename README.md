@@ -13,6 +13,10 @@ model manifest. Training data and code live elsewhere (see [Training Data](#trai
 |---|---|---|---|---|---|
 | **v3.1** | placement | Beat-grid Transformer + diagnostic head (BPM/stars aux loss), EMA | 2.70M | **slot F1 0.671**, count ratio 1.11 | **current** |
 | **v3.1** | selection | Autoregressive LSTM, 256 combos, **scheduled sampling** | 5.84M | combo acc 0.433 (TF) — generation hold ratio now stable at 10–12% per re-roll | **current** |
+| v3.2 | placement | Frozen MERT-v1-95M encoder (per-beat 8×768) + projection + beat-grid Transformer | 3.02M | slot F1 0.534 — selection combo acc 0.440 **beats v3** | experimental |
+| v3.2 | selection | Autoregressive LSTM over MERT units (audio-in 5·8·768) | 12.86M | combo acc 0.440 (TF) | experimental |
+| v3.2 | placement | Raw-waveform SampleCNN frontend + beat-grid Transformer | 2.95M | slot F1 0.480 | experimental |
+| v3.2 | selection | Autoregressive LSTM over raw-frontend embeddings (audio-in 5·8·128) | 6.31M | combo acc 0.422 (TF) | experimental |
 | v3.0 | placement | Beat-grid Transformer encoder, 48 slots/beat | 2.70M | slot F1 0.639 (±2 slots ≈ ±17 ms) | superseded |
 | v3.0 | selection | Autoregressive LSTM over 256 column-state combos | 5.84M | combo acc 0.442 (prior 0.141) | superseded |
 | v2 | placement | Frame-level Conv1d + FiLM + BiLSTM, multi-task (note/hold/len) | 1.22M | note F1 0.680 (±46 ms), hold F1 0.135 | legacy |
@@ -22,6 +26,23 @@ model manifest. Training data and code live elsewhere (see [Training Data](#trai
 > both generations are present (see `training/generate.py: v3_available`).
 
 ## Changelog
+
+### v3.2 (2026-10-16)
+
+- **Two experimental "model reads audio directly" backends**, trained with the same beat-grid
+  pipeline / labels / hyper-parameters as v3.1 — the only variable is the audio representation
+  (three-way A/B on the test split: v3 placement 0.678 / mert 0.536 / raw 0.481 slot F1;
+  mert selection 0.436 **beats** v3's 0.429 combo acc):
+  - **v5-mert**: frozen MERT-v1-95M encoder, 13-layer mean-pooled hidden states resampled to
+    per-beat 8×768 units (precomputed offline; features for all 2,912 sets ≈ 20 GB).
+    Requires `transformers` + MERT weights at inference (~1.4 GB).
+  - **v4-raw**: from-scratch SampleCNN frontend on per-beat raw waveforms (4,096 int16 samples
+    per beat, p95-normalized, anti-alias low-passed). Overfits at this dataset scale — kept as
+    a research baseline.
+- Both stay **opt-in**: `MUSTAFF_ML_BACKEND=mert|raw` (v3 remains the default backend).
+- Takeaway: pretrained music encoders beat from-scratch waveform learning at 2.9k sets, but
+  hand-crafted features remain the strongest placement prior; a v3-placement + mert-selection
+  hybrid is the natural next step.
 
 ### v3.1 (2026-09-26)
 
@@ -65,18 +86,26 @@ DDC / ITGPT):
 
 ## Usage
 
-Download the four `*.pt` files from the latest
-[Release](https://github.com/ChidcGithub/mustaff-models/releases) and place them in
-`Mustaff/training/output/`. The GUI/CLI will detect them automatically (`生成方式 → ML 模型`
-or `--ml`).
+Download the `*.pt` files from the [latest
+Release](https://github.com/ChidcGithub/mustaff-models/releases) and place them in
+`Mustaff/training/output/`. The GUI/CLI detect them automatically
+(`生成方式 → ML 模型` + **ML 后端** dropdown, or `--ml --ml-backend mert|raw|v3|v2`;
+`auto` prefers v3).
 
 ```
 training/output/
-├── placement_v3_best.pt    # v3 placement (beat-grid transformer)
-├── selection_v3_best.pt    # v3 selection (256-combo LSTM)
+├── placement_v3_best.pt    # v3 placement (beat-grid transformer)   [default]
+├── selection_v3_best.pt    # v3 selection (256-combo LSTM)         [default]
+├── placement_mert_best.pt  # v3.2 experimental (needs transformers + MERT weights)
+├── selection_mert_best.pt  # v3.2 experimental
+├── placement_raw_best.pt   # v3.2 experimental (research baseline)
+├── selection_raw_best.pt   # v3.2 experimental
 ├── placement_best.pt       # v2 fallback (optional)
 └── selection_best.pt       # v2 fallback (optional)
 ```
+
+The mert backend additionally needs the MERT-v1-95M weights at inference
+(`m-a-p/MERT-v1-95M`, auto-downloaded via `transformers`, ~1.4 GB).
 
 ## Reproducing
 
